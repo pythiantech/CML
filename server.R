@@ -5,6 +5,10 @@ source("global.R")
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
 
+############################################################
+#Plots for demog tab
+  
+#Reactive table based on user selection of gender
 x <- reactive({
   if(input$sex=='Both')
     dataSet <- patients
@@ -12,7 +16,7 @@ x <- reactive({
   dataSet
 })
 
-
+#Histogram plot
 output$histo <- renderPlotly({
   x <- req(x())
   varmean <- mean(x[[input$varble]])
@@ -26,6 +30,7 @@ output$histo <- renderPlotly({
   )
 })
 
+#Scatter Plot
 output$scatter <- renderPlotly({
   ggplotly(
     ggplot(patients, aes(x=height, y=weight, fill=gender))+
@@ -35,6 +40,7 @@ output$scatter <- renderPlotly({
   )
 })
 
+#Leaflet Plot
 output$map <- renderLeaflet({
   locations <- coords %>% filter(68.1766451354<=lon & lon<=97.4025614766)
   leaflet(locations) %>% 
@@ -50,6 +56,36 @@ output$map <- renderLeaflet({
     )
 })
 
+##############################################################################
+#Plots for Initial Disease Tab
+
+#Symptoms Plot
+
+output$symptom <- renderPlotly({
+  ggplotly(
+    ggplot(Symptoms, aes(x=reorder(value,Count),y=Count,fill=gender))+geom_col()+coord_flip()+
+      ggtitle("Distribution of Common Initial Symptoms")+
+      theme(legend.position="bottom",
+            legend.title = element_blank())+
+      xlab(NULL),tooltip = "Count"
+  )
+})
+
+#Drug Usage Plot
+output$drugs <- renderPlotly({
+  initDetail <- initDetail %>% filter(brandTKI!="" & nameTKI!="")
+  initDetail$brandTKI[initDetail$brandTKI=='Imatinate,type="text"'] <- "Imatinate"
+  x <- initDetail %>% count(brandTKI)
+  ggplotly(
+    ggplot(initDetail, aes(x=fct_rev(fct_infreq(brandTKI)), fill=nameTKI,
+                           text=paste('Drug Brand :',brandTKI)))+geom_bar()+coord_flip()+
+    ggtitle("Drug Brands being Administered")+xlab(NULL)+
+      theme(legend.position="bottom",
+            legend.title = element_blank()),
+    tooltip = c("text")
+      
+  )
+})
 
   
 })

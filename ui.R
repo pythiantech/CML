@@ -28,6 +28,7 @@ shinyUI(
                      )),
     dashboardBody(
       tabItems(
+        #Demographics Tab
         tabItem(tabName = "demog",
                 fluidRow(
                   infoBox(title="Total Patients", value=total,color="green",fill = TRUE),
@@ -53,8 +54,16 @@ shinyUI(
                       leafletOutput("map")
                       )
                 )
-              )
+              ),
+        ########################################
+        #Initial Disease Tab
+        tabItem(tabName = "init",
+                fluidRow(
+                    box(plotlyOutput("symptom"),width=6),
+                    box(plotlyOutput("drugs"),width=6)
+                  )
             )
+      )
     ),
     tags$head(tags$style(HTML("
     .skin-blue .main-sidebar {

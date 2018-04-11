@@ -99,10 +99,10 @@ killDbConnections <- function () {
 # treatment <- treatment %>% filter(PatientId %in% unique(patients$PatientId))
 # treatment$dateofStarting <- ymd(treatment$dateofStarting)
 # treatment$submittedDate <- ymd(treatment$submittedDate)
-# 
-# #Filtering for consecutive rows with difference
-# #https://stackoverflow.com/questions/38035323/comparing-consecutive-rows-and-select-rows-where-are-subsequent-is-a-specific-va
-# #https://stackoverflow.com/questions/14846547/calculate-difference-between-values-in-consecutive-rows-by-group
+
+#Filtering for consecutive rows with difference
+#https://stackoverflow.com/questions/38035323/comparing-consecutive-rows-and-select-rows-where-are-subsequent-is-a-specific-va
+#https://stackoverflow.com/questions/14846547/calculate-difference-between-values-in-consecutive-rows-by-group
 # x <- treatment %>% group_by(PatientId) %>% arrange(dateofStarting) %>%
 #   mutate(ind = nameTKI=="Imatinib" & lead(nameTKI)!="Imatinib") %>%
 #   slice(sort(c(which(ind),which(ind)+1))) %>%
@@ -111,20 +111,20 @@ killDbConnections <- function () {
 #   mutate(Diff=c(NA,as.numeric(diff(dateofStarting))))
 # mean(x$Diff,na.rm = TRUE)
 # plot(x$Diff)
-# 
-# #PCR analysis
-# PCR1 <- PCR %>% filter(PatientId %in% unique(patients$PatientId))
-# PCR1 <- PCR1 %>% left_join(patients,by='PatientId') %>%
-#   select(PatientId,age,gender,submittedDate,labname, BCR_ABL) %>%
-#   left_join(treatment,by='PatientId') %>%
-#   left_join(initDetail, by='PatientId') %>%
-#   select(PatientId,age,gender,submittedDate.x,submittedDate.y,dateofStarting.x,BCR_ABL.x,nameTKI.x,brandTKI.x,
-#          dailydose.x,labname,sokel,hosford,eutos) %>%
-#   arrange(dateofStarting.x)
-# PCR1 <- PCR1 %>% distinct(dateofStarting,BCR_ABL.x,.keep_all = TRUE)
-# PCR1$submittedDate.x <- ymd(PCR1$submittedDate.x)
-# PCR1$dailydose.x <- as.numeric(PCR1$dailydose.x)
-# PCR1$DT <- paste(month(PCR1$dateofStarting.x),year(PCR1$dateofStarting.x),sep = '-')
+
+#PCR analysis
+PCR1 <- PCR %>% filter(PatientId %in% unique(patients$PatientId))
+PCR1 <- PCR1 %>% left_join(patients,by='PatientId') %>%
+  select(PatientId,age,gender,submittedDate,labname, BCR_ABL) %>%
+  left_join(treatment,by='PatientId') %>%
+  left_join(initDetail, by='PatientId') %>%
+  select(PatientId,age,gender,submittedDate.x,submittedDate.y,dateofStarting.x,BCR_ABL.x,nameTKI.x,brandTKI.x,
+         dailydose.x,labname,sokel,hosford,eutos) %>%
+  arrange(dateofStarting.x)
+PCR1 <- PCR1 %>% distinct(dateofStarting,BCR_ABL.x,.keep_all = TRUE)
+PCR1$submittedDate.x <- ymd(PCR1$submittedDate.x)
+PCR1$dailydose.x <- as.numeric(PCR1$dailydose.x)
+PCR1$DT <- paste(month(PCR1$dateofStarting.x),year(PCR1$dateofStarting.x),sep = '-')
 
 # data(gapminder, package = "gapminder")
 # gg <- ggplot(PCR1, aes(sokel, hosford, color = brandTKI.x)) +
@@ -144,12 +144,23 @@ if(nrow(newrecords)>0){
 }
 saveRDS(coords,"coords.Rds")
 
-symptoms1 <- as.data.frame(str_split(initDetail$symptoms,",", simplify=TRUE)) %>% 
-  count(V1) 
-symptoms1$V1 <- trimws(symptoms1$V1)
-symptoms2 <- as.data.frame(str_split(initDetail$symptoms,",", simplify=TRUE)) %>% 
-  count(V1=V2) 
-symptoms2$V1 <- trimws(symptoms2$V1)
-symptoms <- bind_rows(symptoms1,symptoms2) 
-symptoms$V1 <- as.factor(symptoms$V1)
-symptoms <- symptoms %>% group_by(V1) %>% arrange(desc(n))
+#Top symptoms
+#First combine gender too
+Symptoms <- initDetail %>% left_join(patients, by="PatientId") %>% 
+  select(gender,symptoms)
+Symptoms <- separate(Symptoms, 'symptoms', paste("Symptom",1:5), sep=",", extra = "drop") %>% 
+  gather(key="symptom",value="value",-gender) %>% 
+  select(gender, value) %>% group_by(value, gender) %>% filter(value!="") %>% 
+  summarize(Count=n()) %>% filter(value!=" " & Count>10) %>% arrange(desc(Count))
+
+#Adding risk levels to eutos, sokal and hasford
+initDetail$SokelRisk <- ifelse(initDetail$sokel<0.8, "Low",
+                               ifelse(initDetail$sokel>0.8 & initDetail$sokel<=1.2, "Intermediate","High"))
+initDetail$HosfordRisk <- ifelse(initDetail$hosford<=780, "Low",
+                               ifelse(initDetail$hosford>780 & initDetail$hosford<=1480, "Intermediate","High"))
+initDetail$EutosRisk <- ifelse(initDetail$eutos<87, "Low","High")
+
+#BCR_ABL can't be greater than 100?
+initDetail$BCR_ABL[initDetail$BCR_ABL>100] <- initDetail$BCR_ABL[initDetail$BCR_ABL>100]/100
+
+#
