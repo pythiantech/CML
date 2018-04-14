@@ -2,6 +2,7 @@
 
 library(shiny)
 source("global.R")
+#source("Clustering.R")
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
 
@@ -85,6 +86,18 @@ output$drugs <- renderPlotly({
     tooltip = c("text")
       
   )
+})
+
+output$BCR <- renderPlot({
+  ggplot(NewInitDetails, aes_string(x=NewInitDetails$BCR_ABL, y=input$Score,
+                                    color=paste0(input$Score,"Risk")))+
+    geom_point()+geom_smooth()+xlab("BCR_ABL")+
+    ggtitle("Prognostic Scores compared with BCR-ABL at Patient Registration")
+})
+
+output$corr <- renderPlot({
+  corrplot(cor.mat, type="upper", order="hclust", 
+           tl.col="black", tl.srt=45)
 })
 
   

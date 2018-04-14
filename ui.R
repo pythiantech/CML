@@ -5,6 +5,7 @@ library(shiny)
 shinyUI(
   
   dashboardPage(
+    
     dashboardHeader(title="CML Analytics",titleWidth = 280),
     dashboardSidebar(title = tags$a(href='http://pythtech.com',
                                     tags$img(src='logo.png',width=250)),width = 280,
@@ -61,7 +62,13 @@ shinyUI(
                 fluidRow(
                     box(plotlyOutput("symptom"),width=6),
                     box(plotlyOutput("drugs"),width=6)
-                  )
+                  ),
+                fluidRow(
+                  selectInput("Score","Select Prognostic Score",
+                              choices = c("Sokal","Hasford","EUTOS")),
+                  box(plotOutput("BCR"), width=6),
+                  box(plotOutput("corr"), width=6, title="Correlation Matrix")
+                )
             )
       )
     ),
@@ -71,5 +78,6 @@ shinyUI(
                               }
     .skin-blue .main-header .logo {
                               background-color: #6167ad}")))
+    
   )
 )
