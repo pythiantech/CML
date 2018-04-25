@@ -67,7 +67,7 @@ shinyUI(
                   selectInput("Score","Select Prognostic Score",
                               choices = c("Sokal","Hasford","EUTOS")),
                   box(plotOutput("BCR"), width=6),
-                  box(plotOutput("corr"), width=6, title="Correlation Matrix")
+                  box(highchartOutput("corr"), width=6)
                 )
             )
       )

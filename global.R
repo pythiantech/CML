@@ -19,7 +19,7 @@ library(ggmap)
 library(leaflet)
 library(leaflet.extras)
 library(ggthemes)
-
+# library(ggimage)
 ##########################################
 ##############  data table  ##############
 ##########################################
@@ -60,48 +60,48 @@ killDbConnections <- function () {
 
 }
 #Connect to the database
-# con <- dbConnect(RMySQL::MySQL(),
-#                  dbname = 'ebdb',
-#                  host= "healthcare.cngpocha5xz0.ap-south-1.rds.amazonaws.com",
-#                  port=3306,
-#                  user='admin',
-#                  password='password')
-# 
-# #List the tables in the database
-# dbListTables(con)
-# # # 
-# # # 
-# patients <- tbl(con, "RegisterPatient") %>% collect()
-# patients$gender <- as.factor(patients$gender)
-# patients$registerdate <- ymd(patients$registerdate)
-# patients <- patients %>% filter(patientId!="Hospital1_1") #Remove Amit Kumar Gupta (that's our developer)
-# colnames(patients)[1] <- "PatientId"
-# patients$registerdate <- ymd(patients$registerdate)
-# 
-# #Filter for hospital 1 only
-# patients <- patients %>% filter(grepl('Hospital1_',PatientId))
-# 
-# initDetail <- tbl(con, "InitialDetail") %>% collect()
-# diseasePhase <- tbl(con, "DiseasePhase") %>% collect()
-# diagDetail <- tbl(con, "DiagnosisDetail") %>% collect()
-# patientDisease <- tbl(con, "PatientDisease") %>% collect()
-# treatment <- data.table(tbl(con, "Treatment") %>% collect())
-# treatment[681,3] <- "2001-03-09"
-# pbd <- tbl(con, "PeripheralBloodDetails") %>% collect()
-# CCR <- tbl(con,"CCR") %>% collect()
-# bct <- tbl(con, "BiochemicalTests") %>% collect()
-# status <- tbl(con, "PatientAliveStatus") %>% collect()
-# PCR <- tbl(con, "PCR") %>% collect()
-# 
-# killDbConnections()
-# 
-# initDetail <- initDetail %>% filter(PatientId %in% unique(patients$PatientId))
-# 
-# treatment <- treatment %>% filter(PatientId %in% unique(patients$PatientId))
-# treatment[691,3] <- "2016-03-09"
-# treatment$dateofStarting <- ymd(treatment$dateofStarting)
-# treatment$submittedDate <- ymd(treatment$submittedDate)
+con <- dbConnect(RMySQL::MySQL(),
+                 dbname = 'ebdb',
+                 host= "healthcare.cngpocha5xz0.ap-south-1.rds.amazonaws.com",
+                 port=3306,
+                 user='admin',
+                 password='password')
 
+#List the tables in the database
+dbListTables(con)
+# # #
+# # #
+patients <- tbl(con, "RegisterPatient") %>% collect()
+patients$gender <- as.factor(patients$gender)
+patients$registerdate <- ymd(patients$registerdate)
+patients <- patients %>% filter(patientId!="Hospital1_1") #Remove Amit Kumar Gupta (that's our developer)
+colnames(patients)[1] <- "PatientId"
+patients$registerdate <- ymd(patients$registerdate)
+
+#Filter for hospital 1 only
+patients <- patients %>% filter(grepl('Hospital1_',PatientId))
+patients <- patients %>% select(-fileNo)
+initDetail <- tbl(con, "InitialDetail") %>% collect()
+diseasePhase <- tbl(con, "DiseasePhase") %>% collect()
+diagDetail <- tbl(con, "DiagnosisDetail") %>% collect()
+patientDisease <- tbl(con, "PatientDisease") %>% collect()
+treatment <- data.table(tbl(con, "Treatment") %>% collect())
+treatment[681,3] <- "2001-03-09"
+pbd <- tbl(con, "PeripheralBloodDetails") %>% collect()
+CCR <- tbl(con,"CCR") %>% collect()
+bct <- tbl(con, "BiochemicalTests") %>% collect()
+status <- tbl(con, "PatientAliveStatus") %>% collect()
+PCR <- tbl(con, "PCR") %>% collect()
+
+killDbConnections()
+
+initDetail <- initDetail %>% filter(PatientId %in% unique(patients$PatientId))
+
+treatment <- treatment %>% filter(PatientId %in% unique(patients$PatientId))
+treatment[691,3] <- "2016-03-09"
+treatment$dateofStarting <- ymd(treatment$dateofStarting)
+treatment$submittedDate <- ymd(treatment$submittedDate)
+colnames(treatment)[2] <- "FollowupDate"
 #Filtering for consecutive rows with difference
 #https://stackoverflow.com/questions/38035323/comparing-consecutive-rows-and-select-rows-where-are-subsequent-is-a-specific-va
 #https://stackoverflow.com/questions/14846547/calculate-difference-between-values-in-consecutive-rows-by-group
@@ -169,11 +169,12 @@ initDetail$Basophils <- ifelse(initDetail$Basophils%%1>0, initDetail$Basophils*1
                                  initDetail$Basophils)
 initDetail$Blast <- ifelse(initDetail$Blast%%1>0, initDetail$Blast*10,
                                  initDetail$Blast)
+initDetail <- select(initDetail,-fileNo)
 
 #New Calculations for Sokal, Hasford & Eutos
 NewInitDetails <- initDetail %>% left_join(patients, by="PatientId") %>% 
-  select(colnames(initDetail), age)
-
+  dplyr::select(names(initDetail), age)
+ 
 NewInitDetails$Sokal <- exp(0.0116*(NewInitDetails$age - 43.4)) + 
   (0.0345*(NewInitDetails$spleenSize - 7.51)) + (0.188*((NewInitDetails$PLT/700)^2 - 0.563)) + 
      (0.0887*(NewInitDetails$Blast - 2.10))
@@ -193,17 +194,21 @@ NewInitDetails$EUTOSRisk <- ifelse(NewInitDetails$EUTOS<87, "Low","High")
 #############################################
 #PCR analysis
 PCR1 <- PCR %>% filter(PatientId %in% unique(patients$PatientId))
+colnames(PCR1)[2] <- "TestDate"
+PCR1$TestDate <- ymd(PCR1$TestDate)
 PCR1 <- PCR1 %>% left_join(patients,by='PatientId') %>%
-  select(PatientId,age,gender,submittedDate,labname, BCR_ABL) %>%
+  select(PatientId,age,gender,firstName, middleName, familyName,TestDate,labname, BCR_ABL) %>%
+  mutate(Name=paste(firstName, middleName, familyName)) %>% select(-firstName, -middleName, -familyName) %>% 
   left_join(treatment,by='PatientId') %>%
-  left_join(NewInitDetails, by='PatientId') %>%
-  select(PatientId,age.x,gender,submittedDate.x,submittedDate.y,dateofStarting.x,BCR_ABL.x,nameTKI.x,brandTKI.x,
-         dailydose.x,labname) %>%
-  arrange(dateofStarting.x)
+    select(PatientId, Name, age, gender, TestDate, labname, BCR_ABL,FollowupDate, dateofStarting, nameTKI, brandTKI,dailydose) %>% 
+  # left_join(NewInitDetails, by='PatientId') %>%
+  # select(PatientId,age.x,gender,submittedDate.x,submittedDate.y,dateofStarting.x,BCR_ABL.x,nameTKI.x,brandTKI.x,
+  #        dailydose.x,labname) %>%
+  arrange(dateofStarting)
 PCR1 <- PCR1 %>% distinct(dateofStarting,BCR_ABL.x,.keep_all = TRUE)
-PCR1$submittedDate.x <- ymd(PCR1$submittedDate.x)
-PCR1$dailydose.x <- as.numeric(PCR1$dailydose.x)
-PCR1$DT <- paste(month(PCR1$dateofStarting.x),year(PCR1$dateofStarting.x),sep = '-')
+PCR1$TestDate <- ymd(PCR1$TestDate)
+PCR1$dailydose <- as.numeric(PCR1$dailydose)
+PCR1$DT <- paste(month(PCR1$dateofStarting),year(PCR1$dateofStarting),sep = '-')
 
 ############################################################
 #PCA Factor analysis
@@ -249,3 +254,4 @@ fviz_pca_ind(res.pca,geom.ind = "point", # show points only (nbut not "text")
              repel=TRUE,
              # ellipse.type="confidence",# Concentration ellipses
              legend.title = "Groups")#, habillage=PCAset$SokalRisk)
+# img <- "www/RBC.jpg"

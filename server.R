@@ -88,6 +88,7 @@ output$drugs <- renderPlotly({
   )
 })
 
+#Scatter plot Sokal?Hasford/EUTOS vs BCR
 output$BCR <- renderPlot({
   ggplot(NewInitDetails, aes_string(x=NewInitDetails$BCR_ABL, y=input$Score,
                                     color=paste0(input$Score,"Risk")))+
@@ -95,9 +96,17 @@ output$BCR <- renderPlot({
     ggtitle("Prognostic Scores compared with BCR-ABL at Patient Registration")
 })
 
+#Corr Plot
 output$corr <- renderPlot({
   corrplot(cor.mat, type="upper", order="hclust", 
            tl.col="black", tl.srt=45)
+})
+
+#Corr Plot with hchart
+output$corr <- renderHighchart({
+  hchart(cor.mat) %>% hc_add_theme(hc_theme_economist()) %>% 
+    hc_title(text="Correlation Matrix") %>% 
+    hc_subtitle(text="Hover over the squares to read values")
 })
 
   
